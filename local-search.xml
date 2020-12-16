@@ -4,6 +4,31 @@
   
   
   <entry>
+    <title>Python垃圾回收机制</title>
+    <link href="/2020/12/16/Python%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E6%9C%BA%E5%88%B6/"/>
+    <url>/2020/12/16/Python%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E6%9C%BA%E5%88%B6/</url>
+    
+    <content type="html"><![CDATA[<p>在Python中，垃圾回收使用了引用计数、标记清除以及分代回收三种方式，那么这三种方式底层究竟是怎样实现的呢？</p><a id="more"></a><h2 id="PyObject-amp-PyVarObject"><a href="#PyObject-amp-PyVarObject" class="headerlink" title="PyObject  &amp; PyVarObject"></a>PyObject  &amp; PyVarObject</h2><p>我们经常听到一句话，在Python中，一切皆对象。到底啥叫一切皆对象？？？</p><p>其实，对象映射到底层就是一块内存空间，这块内存空间存放了一些数据，对象就是对这块内存空间的抽象。</p><p>Python底层是用C写的，在C中想要分配一块内存空间存放自己需要存放的数据时，通常会先定义一个结构体，然后通过<code>malloc</code>函数为这个结构体开辟一块空间，这样我们就拿到了这块空间的使用权，于是可以对这块空间进行操作了。</p><p>PyObject就是这样一个在C源码中定义好的结构体，它主要包含了四个部分：</p><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> *_<span class="hljs-title">ob_next</span>;</span> <br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> *_<span class="hljs-title">ob_prev</span>;</span><br>    Py_ssize_t ob_refcnt;<br>    PyTypeObject *ob_type;<br>&#125; PyObject;<br></code></pre></td></tr></table></figure><p>其中，<code>_ob_next</code>和<code>_ob_prev</code>是指向前后两个PyObject对象的指针，<code>ob_refcnt</code>则是该对象被引用时的计数器，存放了这个对象被多少个变量所引用，<code>ob_type</code>也是个指针，指向了对象的类型。</p><p>PyVarObject是在PyObject之上，添加了一个<code>ob_size</code>来表示可变对象的长度。</p><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> &#123;</span><br>    PyObject ob_base;<br>    Py_ssize_t ob_size; <span class="hljs-comment">/* Number of items in variable part */</span><br>&#125; PyVarObject;<br></code></pre></td></tr></table></figure><p>在Python中，这两个对象是所有对象的基石，之后的比如list对象、int对象都是在这两个对象之上添加了其他的内容所构成的新对象。</p><h2 id="引用计数"><a href="#引用计数" class="headerlink" title="引用计数"></a>引用计数</h2><p>我们从PyObject的结构体中可以看到，任何一个对象在创建时，必然有<code>ob_refcnt</code>来标识当前对象的引用数量。</p><p>在Python中写下下面的代码时：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">a = <span class="hljs-number">1</span><br>b = a<br></code></pre></td></tr></table></figure><p>当python解释器执行<code>a = 1</code>时，会在内存空间新建一个int类型的对象，其值为1，并且引用计数值<code>ob_refcnt</code>的值也为1，然后创建一块名称为a的空间，用来存放int对象的地址。</p><p>当执行到<code>b = a</code>时，解释器创建一个名为b的空间，然后将1这个对象的地址赋值给b，1这个对象本身的引用计数值加1。</p><p><code>当一个对象的引用计数值大于0时，代表此时有变量指向它，而引用计数值为0时，则没有对象指向它，该对象应该被回收。</code></p><p>但是，Python在底层不仅仅只做了引用计数的加减，在创建一个新的对象时，Python解释器会将这个对象放入到一个<code>环状双向链表refchain</code>中，PyObject中的<code>_ob_next</code>和<code>_ob_prev</code>就是指向这个当前对象在链表中前后位置的对象。</p><p>这就是Python中引用计数的底层实现，通过<code>ob_refcnt</code>的值来控制对象的被引用个数，当值为0时，就会被垃圾回收器回收。</p><h2 id="标记清除-amp-分代收集"><a href="#标记清除-amp-分代收集" class="headerlink" title="标记清除 &amp; 分代收集"></a>标记清除 &amp; 分代收集</h2><p>标记清除算法和分代收集是对垃圾回收机制的一种改进，因为在垃圾回收机制中，存在<code>循环引用</code>的问题。</p><p>例如，我们写下如下代码：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">a = [<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>]<br>b = [<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>]<br>a.append(b)<br>b.append(a)<br><br><span class="hljs-keyword">del</span> a<br><span class="hljs-keyword">del</span> b<br></code></pre></td></tr></table></figure><p>当我们执行<code>a = [1, 2, 3]</code>时，解释器在内存空间创建一块内存空间存放列表对象，然后将列表对象的引用计数值设置为1。</p><p>同样，执行到<code>b = [2, 3, 4]</code>时，解释器也在内存创建一块空间存放列表对象，将该列表对象的引用计数值设置为1。</p><p>当执行到<code>a.append(b)</code>时，由于a有了对b对象的引用，所以b对象的引用计数值会加1，此时来到了2。</p><p>同样，当执行<code>b.append(b)</code>时，b也有了对a对象的引用，a对象的引用计数值也会加1，此时也来到了2。</p><p>当执行到<code>del a</code>和<code>del b</code>之后，a和b对象的引用计数值都会减1，此时a对象和b对象的<code>ob_refcnt</code>值都为1。</p><p>这段代码已经结束了，而我们创建的两个对象的引用计数值依然为1，由于引用计数不为0，所以此时不会被垃圾回收，这就导致了无用的对象一直驻留在内存中造成内存的浪费。</p><p>标记清除和分代收集算法就是为了解决这种循环引用导致内存无法回收问题而推出的新算法。</p><p>在分代收集算法中，有三个链表，名称分为为：<code>0代链表</code>、<code>1代链表</code>、<code>2代链表</code>。</p><p>当我们创建了一个容器对象时，这个对象不仅仅会加入到上面讲的<code>refchain</code>中，还有加入到0代链表中。</p><p>当0代链表中的元素个数到达一定阈值时，python会启动垃圾回收代码，对0代链表中所有元素进行遍历，找出是否存在循环引用的容器，如果存在，则将这两个容器的引用计数分别减1。然后判断引用计数值是否为0，如果为0则进行回收。</p><p>当0代链表的清理工作完成之后，会将元素移动到1代链表上。</p><p>同样，当0代链表完成了一定次数的清理工作之后，1代链表就会进行清理，清理过程和0代链表类似。</p><p>在Python中，我们可以通过<code>gc</code>模块获取到各个代清理触发的阈值：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> gc<br><br><br>print(gc.get_threshold())<br></code></pre></td></tr></table></figure><p>可以看到，在Python中默认的阈值分别为：<code>700, 10, 10</code>：</p><p><img src="image-20201216205056437.png" alt="image-20201216205056437"></p><p>也就是1代链表进行了10次清理，就会触发2代链表的清理，0代链表进行了10次清理，就会触发1代链表的清理，0代链表中有700个元素时，则会触发0代链表的清理。</p><h2 id="缓存机制"><a href="#缓存机制" class="headerlink" title="缓存机制"></a>缓存机制</h2><p>以上就是Python垃圾回收相关的内容，但是呢？Python还引用了缓存机制来避免内存频繁创建和销毁带来的开销。</p><p>缓存机制分为两类：<code>缓存池</code>和<code>free_list</code>。</p><p>缓存池机制以<code>int类型</code>对象和<code>字符</code>对象为主。Python解释器在启动时，就已经为一些小整数以及ASCII字符创建好了对象，当程序中需要用到这些小整数或者字符时，会直接返回缓存池中的地址。</p><p>例如：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python">a = <span class="hljs-number">244</span><br>b = <span class="hljs-number">244</span><br>print(<span class="hljs-built_in">id</span>(a))<br>print(<span class="hljs-built_in">id</span>(b))<br><br>c = <span class="hljs-string">&quot;A&quot;</span><br>d = <span class="hljs-string">&quot;A&quot;</span><br>print(<span class="hljs-built_in">id</span>(c))<br>print(<span class="hljs-built_in">id</span>(d))<br></code></pre></td></tr></table></figure><p>结果如下：</p><p><img src="image-20201216205609039.png" alt="image-20201216205609039"></p><p>另一种缓存机制就是free_list，主要使用到的数据结构是固定长度的单链表。</p><p>float对象就使用了free_list来进行缓存，在float对象创建时，首先判断free_list中是否有元素，如果有元素，则从链表头取出一个float对象，然后将这个对象的值改成这次要创建的float对象的值，这样就避免了重新分配内存空间。</p><p>同样，float对象在销毁时，不会直接进行内存的释放，而是会先判断单链表中是否已经满了，如果已经满了，则释放内存，如果没有满，会将这个对象从<code>refchain</code>中删掉，放入到free_list中。</p><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>1、引用计数为0时，对象不一定被直接释放，因为python有缓存机制</p><p>2、缓存机制分为两类：缓存池和free_list，缓存池主要为小整数和字符对象使用，free_list为float/list/dict/tuple对象使用。</p><p>3、分代收集时，0代收集的触发条件是链表中的个数，而1代和2代收集触发条件都是上一代的清理次数。</p><h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><p>[1] <a href="https://www.bilibili.com/video/BV1dp4y1C7ja">武佩齐老师的讲解视频</a></p><p>[2] <a href="https://www.python.org/downloads/source/">Python3.9.2源码</a></p><p>[3] <a href="https://www.imooc.com/read/76/article/1902">慕课网专栏</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>Python</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Python垃圾回收</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>JWT认证</title>
     <link href="/2020/12/14/JWT%E8%AE%A4%E8%AF%81/"/>
     <url>/2020/12/14/JWT%E8%AE%A4%E8%AF%81/</url>
@@ -21,6 +46,31 @@
     <tags>
       
       <tag>JWT认证</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>MySQL索引</title>
+    <link href="/2020/12/14/MySQL%E7%B4%A2%E5%BC%95/"/>
+    <url>/2020/12/14/MySQL%E7%B4%A2%E5%BC%95/</url>
+    
+    <content type="html"><![CDATA[<p>此篇博文记录对于MySQL索引的学习，若有理解有误之处，望大佬指出。</p><a id="more"></a><h2 id="索引概念"><a href="#索引概念" class="headerlink" title="索引概念"></a>索引概念</h2><p>在数据库中，<code>索引通常来说是一种数据结构，这种数据结构能够加快数据的查找。</code></p><p>当数据库中的数据量达到百万甚至千万级别时，如果不通过索引查找，则需要进行百万或千万次的比较，查找会比较慢。一旦建立索引，查找数据通过索引数据结构快速定位到数据元素，对于查询速率会有很大的帮助。</p><p>例如我们写下这条SQL语句：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs mysql">select name from user where id&#x3D;5;<br></code></pre></td></tr></table></figure><p>如果在<code>id</code>字段上建有索引，则MySQL会先通过索引来找到id为5的行，然后返回该行。</p><p>也就是说MySQL会先在索引数据结构上按索引值进行查找，然后返回所有匹配的行。</p><p>注意：索引不仅仅可以包含一个列的值，还可以包含多个列的值。如果包含多个列的值，则需要注意列的顺序，因为MySQL会使用索引的最左前缀列来进行匹配。</p><h2 id="索引类型"><a href="#索引类型" class="headerlink" title="索引类型"></a>索引类型</h2><p>在MySQL中，索引是在存储引擎层实现的，而不是在服务器层实现的。</p><h3 id="B-Tree索引"><a href="#B-Tree索引" class="headerlink" title="B+Tree索引"></a>B+Tree索引</h3><p><strong>B-Tree对于索引列是按照顺序组织存储的，所以很适合进行范围查找数据。</strong></p><h3 id="Hash索引"><a href="#Hash索引" class="headerlink" title="Hash索引"></a>Hash索引</h3><p>Hash索引基于Hash表实现，对于每一行数据，存储引擎都会对所有的列计算一个Hash Code，Hash索引将所有的Hash Code存储在引擎中，同时在Hash表中存储指向每个数据行的指针。</p><p>在MySQL中，只有Memory引擎显示支持Hash索引，这也是Memory引擎默认的索引方式。</p><p>使用Hash索引的缺点：</p><p>1、Hash索引只包含哈希值和指向数据行的指针，不存储字段值，所以不能使用索引来避免读取行。</p><p>2、Hash索引的数据并不是按照索引值顺序存储的，所以不能用于排序场景。    </p>]]></content>
+    
+    
+    <categories>
+      
+      <category>MySQL</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>MySQL索引</tag>
       
     </tags>
     

@@ -17,9 +17,25 @@
   <meta name="description" content="">
   <meta name="author" content="maple-q">
   <meta name="keywords" content="">
-  <title>分类 - MySQL - Hexo</title>
+  <title>MySQL索引 - Hexo</title>
 
   <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" />
+
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@4.0.0/github-markdown.min.css" />
+  <link  rel="stylesheet" href="/lib/hint/hint.min.css" />
+
+  
+    
+    
+      
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.4.0/styles/github-gist.min.css" />
+    
+  
+
+  
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" />
+  
 
 
 
@@ -47,7 +63,7 @@
 
 
 <body>
-  <header style="height: 60vh;">
+  <header style="height: 70vh;">
     <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
   <div class="container">
     <a class="navbar-brand"
@@ -146,9 +162,46 @@
       <div class="full-bg-img">
         <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
           <div class="page-header text-center fade-in-up">
-            <span class="h2" id="subtitle" title="分类 - MySQL">
+            <span class="h2" id="subtitle" title="MySQL索引">
               
             </span>
+
+            
+              <div class="mt-3">
+  
+  
+    <span class="post-meta">
+      <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+      <time datetime="2020-12-14 13:37" pubdate>
+        2020年12月14日 下午
+      </time>
+    </span>
+  
+</div>
+
+<div class="mt-1">
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-chart"></i>
+      532 字
+    </span>
+  
+
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-clock-fill"></i>
+      
+      
+      5
+       分钟
+    </span>
+  
+
+  
+  
+</div>
 
             
           </div>
@@ -161,46 +214,108 @@
 
   <main>
     
-      <div class="container nopadding-md">
-        <div class="py-5" id="board"
-          >
-          
-          <div class="container">
-            <div class="row">
-              <div class="col-12 col-md-10 m-auto">
-                
-
-<div class="list-group">
-  <p class="h4">共计 2 篇文章</p>
-  <hr>
-  
-  
-    
       
-      <p class="h5">2020</p>
-    
-    <a href="/2020/12/14/MySQL%E7%B4%A2%E5%BC%95/" class="list-group-item list-group-item-action">
-      <span class="archive-post-title">MySQL索引</span>
-      <time style="float: right;">12-14</time>
-    </a>
-  
-    
-    <a href="/2020/12/13/MySQL8-0%E5%AE%89%E8%A3%85/" class="list-group-item list-group-item-action">
-      <span class="archive-post-title">MySQL 8.0 安装</span>
-      <time style="float: right;">12-13</time>
-    </a>
-  
-</div>
 
+<div class="container-fluid">
+  <div class="row">
+    <div class="d-none d-lg-block col-lg-2"></div>
+    <div class="col-lg-8 nopadding-md">
+      <div class="container nopadding-md" id="board-ctn">
+        <div class="py-5" id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">MySQL索引</h1>
+            
+            <div class="markdown-body">
+              <p>此篇博文记录对于MySQL索引的学习，若有理解有误之处，望大佬指出。</p>
+<a id="more"></a>
 
+<h2 id="索引概念"><a href="#索引概念" class="headerlink" title="索引概念"></a>索引概念</h2><p>在数据库中，<code>索引通常来说是一种数据结构，这种数据结构能够加快数据的查找。</code></p>
+<p>当数据库中的数据量达到百万甚至千万级别时，如果不通过索引查找，则需要进行百万或千万次的比较，查找会比较慢。一旦建立索引，查找数据通过索引数据结构快速定位到数据元素，对于查询速率会有很大的帮助。</p>
+<p>例如我们写下这条SQL语句：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs mysql">select name from user where id&#x3D;5;<br></code></pre></td></tr></table></figure>
 
+<p>如果在<code>id</code>字段上建有索引，则MySQL会先通过索引来找到id为5的行，然后返回该行。</p>
+<p>也就是说MySQL会先在索引数据结构上按索引值进行查找，然后返回所有匹配的行。</p>
+<p>注意：索引不仅仅可以包含一个列的值，还可以包含多个列的值。如果包含多个列的值，则需要注意列的顺序，因为MySQL会使用索引的最左前缀列来进行匹配。</p>
+<h2 id="索引类型"><a href="#索引类型" class="headerlink" title="索引类型"></a>索引类型</h2><p>在MySQL中，索引是在存储引擎层实现的，而不是在服务器层实现的。</p>
+<h3 id="B-Tree索引"><a href="#B-Tree索引" class="headerlink" title="B+Tree索引"></a>B+Tree索引</h3><p><strong>B-Tree对于索引列是按照顺序组织存储的，所以很适合进行范围查找数据。</strong></p>
+<h3 id="Hash索引"><a href="#Hash索引" class="headerlink" title="Hash索引"></a>Hash索引</h3><p>Hash索引基于Hash表实现，对于每一行数据，存储引擎都会对所有的列计算一个Hash Code，Hash索引将所有的Hash Code存储在引擎中，同时在Hash表中存储指向每个数据行的指针。</p>
+<p>在MySQL中，只有Memory引擎显示支持Hash索引，这也是Memory引擎默认的索引方式。</p>
+<p>使用Hash索引的缺点：</p>
+<p>1、Hash索引只包含哈希值和指向数据行的指针，不存储字段值，所以不能使用索引来避免读取行。</p>
+<p>2、Hash索引的数据并不是按照索引值顺序存储的，所以不能用于排序场景。    </p>
 
-
-              </div>
             </div>
-          </div>
+            <hr>
+            <div>
+              <div class="post-metas mb-3">
+                
+                  <div class="post-meta mr-3">
+                    <i class="iconfont icon-category"></i>
+                    
+                      <a class="hover-with-bg" href="/categories/MySQL/">MySQL</a>
+                    
+                  </div>
+                
+                
+                  <div class="post-meta">
+                    <i class="iconfont icon-tags"></i>
+                    
+                      <a class="hover-with-bg" href="/tags/MySQL%E7%B4%A2%E5%BC%95/">MySQL索引</a>
+                    
+                  </div>
+                
+              </div>
+              
+                <p class="note note-warning">本博客所有文章除特别声明外，均采用 <a target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh" rel="nofollow noopener noopener">CC BY-SA 4.0 协议</a> ，转载请注明出处！</p>
+              
+              
+                <div class="post-prevnext row">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2020/12/14/JWT%E8%AE%A4%E8%AF%81/">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">JWT认证</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2020/12/13/MySQL8-0%E5%AE%89%E8%A3%85/">
+                        <span class="hidden-mobile">MySQL 8.0 安装</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
         </div>
       </div>
+    </div>
+    
+      <div class="d-none d-lg-block col-lg-2 toc-container" id="toc-ctn">
+        <div id="toc">
+  <p class="toc-header"><i class="iconfont icon-list"></i>&nbsp;目录</p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+<!-- Custom -->
+
+
     
 
     
@@ -283,9 +398,15 @@
 
 
 
+  <script  src="https://cdn.jsdelivr.net/npm/tocbot@4.12.0/dist/tocbot.min.js" ></script>
 
 
 
+  <script  src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" ></script>
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/anchor-js@4.3.0/anchor.min.js" ></script>
 
 
 

@@ -1,0 +1,505 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=&#34;auto&#34;>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/favicon.jpg">
+  <link rel="icon" type="image/png" href="/img/favicon.jpg">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="description" content="">
+  <meta name="author" content="maple-q">
+  <meta name="keywords" content="">
+  <title>Python垃圾回收机制 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" />
+
+
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@4.0.0/github-markdown.min.css" />
+  <link  rel="stylesheet" href="/lib/hint/hint.min.css" />
+
+  
+    
+    
+      
+      <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.4.0/styles/github-gist.min.css" />
+    
+  
+
+  
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" />
+  
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_ba1fz6golrf.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_kmeydafke9r.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+<!-- 自定义样式保持在最底部 -->
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.8.6","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false},"toc":{"enable":true,"headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"right","visible":"hover","icon":""},"copy_btn":true,"image_zoom":{"enable":true},"lazyload":{"enable":true,"onlypost":false},"web_analytics":{"enable":false,"baidu":null,"google":null,"gtag":null,"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null}}};
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+<meta name="generator" content="Hexo 5.2.0"></head>
+
+
+<body>
+  <header style="height: 70vh;">
+    <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand"
+       href="/">&nbsp;<strong>Maple-q</strong>&nbsp;</a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/">
+                <i class="iconfont icon-home-fill"></i>
+                首页
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/">
+                <i class="iconfont icon-archive-fill"></i>
+                归档
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/">
+                <i class="iconfont icon-category-fill"></i>
+                分类
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/">
+                <i class="iconfont icon-tags-fill"></i>
+                标签
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/">
+                <i class="iconfont icon-user-fill"></i>
+                关于
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" data-toggle="modal" data-target="#modalSearch">&nbsp;<i
+                class="iconfont icon-search"></i>&nbsp;</a>
+          </li>
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" href="javascript:">&nbsp;<i
+                class="iconfont icon-dark" id="color-toggle-icon"></i>&nbsp;</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div class="banner intro-2" id="background" parallax=true
+         style="background: url('/img/index.jpg') no-repeat center center;
+           background-size: cover;">
+      <div class="full-bg-img">
+        <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+          <div class="page-header text-center fade-in-up">
+            <span class="h2" id="subtitle" title="Python垃圾回收机制">
+              
+            </span>
+
+            
+              <div class="mt-3">
+  
+  
+    <span class="post-meta">
+      <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+      <time datetime="2020-12-16 21:04" pubdate>
+        2020年12月16日 晚上
+      </time>
+    </span>
+  
+</div>
+
+<div class="mt-1">
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-chart"></i>
+      2k 字
+    </span>
+  
+
+  
+    
+    <span class="post-meta mr-2">
+      <i class="iconfont icon-clock-fill"></i>
+      
+      
+      21
+       分钟
+    </span>
+  
+
+  
+  
+</div>
+
+            
+          </div>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="d-none d-lg-block col-lg-2"></div>
+    <div class="col-lg-8 nopadding-md">
+      <div class="container nopadding-md" id="board-ctn">
+        <div class="py-5" id="board">
+          <article class="post-content mx-auto">
+            <!-- SEO header -->
+            <h1 style="display: none">Python垃圾回收机制</h1>
+            
+            <div class="markdown-body">
+              <p>在Python中，垃圾回收使用了引用计数、标记清除以及分代回收三种方式，那么这三种方式底层究竟是怎样实现的呢？</p>
+<a id="more"></a>
+
+<h2 id="PyObject-amp-PyVarObject"><a href="#PyObject-amp-PyVarObject" class="headerlink" title="PyObject  &amp; PyVarObject"></a>PyObject  &amp; PyVarObject</h2><p>我们经常听到一句话，在Python中，一切皆对象。到底啥叫一切皆对象？？？</p>
+<p>其实，对象映射到底层就是一块内存空间，这块内存空间存放了一些数据，对象就是对这块内存空间的抽象。</p>
+<p>Python底层是用C写的，在C中想要分配一块内存空间存放自己需要存放的数据时，通常会先定义一个结构体，然后通过<code>malloc</code>函数为这个结构体开辟一块空间，这样我们就拿到了这块空间的使用权，于是可以对这块空间进行操作了。</p>
+<p>PyObject就是这样一个在C源码中定义好的结构体，它主要包含了四个部分：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> &#123;</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> *_<span class="hljs-title">ob_next</span>;</span> <br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> _<span class="hljs-title">object</span> *_<span class="hljs-title">ob_prev</span>;</span><br>    Py_ssize_t ob_refcnt;<br>    PyTypeObject *ob_type;<br>&#125; PyObject;<br></code></pre></td></tr></table></figure>
+
+<p>其中，<code>_ob_next</code>和<code>_ob_prev</code>是指向前后两个PyObject对象的指针，<code>ob_refcnt</code>则是该对象被引用时的计数器，存放了这个对象被多少个变量所引用，<code>ob_type</code>也是个指针，指向了对象的类型。</p>
+<p>PyVarObject是在PyObject之上，添加了一个<code>ob_size</code>来表示可变对象的长度。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> &#123;</span><br>    PyObject ob_base;<br>    Py_ssize_t ob_size; <span class="hljs-comment">/* Number of items in variable part */</span><br>&#125; PyVarObject;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>在Python中，这两个对象是所有对象的基石，之后的比如list对象、int对象都是在这两个对象之上添加了其他的内容所构成的新对象。</p>
+<h2 id="引用计数"><a href="#引用计数" class="headerlink" title="引用计数"></a>引用计数</h2><p>我们从PyObject的结构体中可以看到，任何一个对象在创建时，必然有<code>ob_refcnt</code>来标识当前对象的引用数量。</p>
+<p>在Python中写下下面的代码时：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs python">a = <span class="hljs-number">1</span><br>b = a<br></code></pre></td></tr></table></figure>
+
+<p>当python解释器执行<code>a = 1</code>时，会在内存空间新建一个int类型的对象，其值为1，并且引用计数值<code>ob_refcnt</code>的值也为1，然后创建一块名称为a的空间，用来存放int对象的地址。</p>
+<p>当执行到<code>b = a</code>时，解释器创建一个名为b的空间，然后将1这个对象的地址赋值给b，1这个对象本身的引用计数值加1。</p>
+<p><code>当一个对象的引用计数值大于0时，代表此时有变量指向它，而引用计数值为0时，则没有对象指向它，该对象应该被回收。</code></p>
+<p>但是，Python在底层不仅仅只做了引用计数的加减，在创建一个新的对象时，Python解释器会将这个对象放入到一个<code>环状双向链表refchain</code>中，PyObject中的<code>_ob_next</code>和<code>_ob_prev</code>就是指向这个当前对象在链表中前后位置的对象。</p>
+<p>这就是Python中引用计数的底层实现，通过<code>ob_refcnt</code>的值来控制对象的被引用个数，当值为0时，就会被垃圾回收器回收。</p>
+<h2 id="标记清除-amp-分代收集"><a href="#标记清除-amp-分代收集" class="headerlink" title="标记清除 &amp; 分代收集"></a>标记清除 &amp; 分代收集</h2><p>标记清除算法和分代收集是对垃圾回收机制的一种改进，因为在垃圾回收机制中，存在<code>循环引用</code>的问题。</p>
+<p>例如，我们写下如下代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python">a = [<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>]<br>b = [<span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>]<br>a.append(b)<br>b.append(a)<br><br><span class="hljs-keyword">del</span> a<br><span class="hljs-keyword">del</span> b<br></code></pre></td></tr></table></figure>
+
+<p>当我们执行<code>a = [1, 2, 3]</code>时，解释器在内存空间创建一块内存空间存放列表对象，然后将列表对象的引用计数值设置为1。</p>
+<p>同样，执行到<code>b = [2, 3, 4]</code>时，解释器也在内存创建一块空间存放列表对象，将该列表对象的引用计数值设置为1。</p>
+<p>当执行到<code>a.append(b)</code>时，由于a有了对b对象的引用，所以b对象的引用计数值会加1，此时来到了2。</p>
+<p>同样，当执行<code>b.append(b)</code>时，b也有了对a对象的引用，a对象的引用计数值也会加1，此时也来到了2。</p>
+<p>当执行到<code>del a</code>和<code>del b</code>之后，a和b对象的引用计数值都会减1，此时a对象和b对象的<code>ob_refcnt</code>值都为1。</p>
+<p>这段代码已经结束了，而我们创建的两个对象的引用计数值依然为1，由于引用计数不为0，所以此时不会被垃圾回收，这就导致了无用的对象一直驻留在内存中造成内存的浪费。</p>
+<p>标记清除和分代收集算法就是为了解决这种循环引用导致内存无法回收问题而推出的新算法。</p>
+<p>在分代收集算法中，有三个链表，名称分为为：<code>0代链表</code>、<code>1代链表</code>、<code>2代链表</code>。</p>
+<p>当我们创建了一个容器对象时，这个对象不仅仅会加入到上面讲的<code>refchain</code>中，还有加入到0代链表中。</p>
+<p>当0代链表中的元素个数到达一定阈值时，python会启动垃圾回收代码，对0代链表中所有元素进行遍历，找出是否存在循环引用的容器，如果存在，则将这两个容器的引用计数分别减1。然后判断引用计数值是否为0，如果为0则进行回收。</p>
+<p>当0代链表的清理工作完成之后，会将元素移动到1代链表上。</p>
+<p>同样，当0代链表完成了一定次数的清理工作之后，1代链表就会进行清理，清理过程和0代链表类似。</p>
+<p>在Python中，我们可以通过<code>gc</code>模块获取到各个代清理触发的阈值：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> gc<br><br><br>print(gc.get_threshold())<br></code></pre></td></tr></table></figure>
+
+<p>可以看到，在Python中默认的阈值分别为：<code>700, 10, 10</code>：</p>
+<p><img src="image-20201216205056437.png" srcset="/img/loading.gif" alt="image-20201216205056437"></p>
+<p>也就是1代链表进行了10次清理，就会触发2代链表的清理，0代链表进行了10次清理，就会触发1代链表的清理，0代链表中有700个元素时，则会触发0代链表的清理。</p>
+<h2 id="缓存机制"><a href="#缓存机制" class="headerlink" title="缓存机制"></a>缓存机制</h2><p>以上就是Python垃圾回收相关的内容，但是呢？Python还引用了缓存机制来避免内存频繁创建和销毁带来的开销。</p>
+<p>缓存机制分为两类：<code>缓存池</code>和<code>free_list</code>。</p>
+<p>缓存池机制以<code>int类型</code>对象和<code>字符</code>对象为主。Python解释器在启动时，就已经为一些小整数以及ASCII字符创建好了对象，当程序中需要用到这些小整数或者字符时，会直接返回缓存池中的地址。</p>
+<p>例如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs python">a = <span class="hljs-number">244</span><br>b = <span class="hljs-number">244</span><br>print(<span class="hljs-built_in">id</span>(a))<br>print(<span class="hljs-built_in">id</span>(b))<br><br>c = <span class="hljs-string">&quot;A&quot;</span><br>d = <span class="hljs-string">&quot;A&quot;</span><br>print(<span class="hljs-built_in">id</span>(c))<br>print(<span class="hljs-built_in">id</span>(d))<br></code></pre></td></tr></table></figure>
+
+<p>结果如下：</p>
+<p><img src="image-20201216205609039.png" srcset="/img/loading.gif" alt="image-20201216205609039"></p>
+<p>另一种缓存机制就是free_list，主要使用到的数据结构是固定长度的单链表。</p>
+<p>float对象就使用了free_list来进行缓存，在float对象创建时，首先判断free_list中是否有元素，如果有元素，则从链表头取出一个float对象，然后将这个对象的值改成这次要创建的float对象的值，这样就避免了重新分配内存空间。</p>
+<p>同样，float对象在销毁时，不会直接进行内存的释放，而是会先判断单链表中是否已经满了，如果已经满了，则释放内存，如果没有满，会将这个对象从<code>refchain</code>中删掉，放入到free_list中。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>1、引用计数为0时，对象不一定被直接释放，因为python有缓存机制</p>
+<p>2、缓存机制分为两类：缓存池和free_list，缓存池主要为小整数和字符对象使用，free_list为float/list/dict/tuple对象使用。</p>
+<p>3、分代收集时，0代收集的触发条件是链表中的个数，而1代和2代收集触发条件都是上一代的清理次数。</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><p>[1] <a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1dp4y1C7ja">武佩齐老师的讲解视频</a></p>
+<p>[2] <a target="_blank" rel="noopener" href="https://www.python.org/downloads/source/">Python3.9.2源码</a></p>
+<p>[3] <a target="_blank" rel="noopener" href="https://www.imooc.com/read/76/article/1902">慕课网专栏</a></p>
+
+            </div>
+            <hr>
+            <div>
+              <div class="post-metas mb-3">
+                
+                  <div class="post-meta mr-3">
+                    <i class="iconfont icon-category"></i>
+                    
+                      <a class="hover-with-bg" href="/categories/Python/">Python</a>
+                    
+                  </div>
+                
+                
+                  <div class="post-meta">
+                    <i class="iconfont icon-tags"></i>
+                    
+                      <a class="hover-with-bg" href="/tags/Python%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/">Python垃圾回收</a>
+                    
+                  </div>
+                
+              </div>
+              
+                <p class="note note-warning">本博客所有文章除特别声明外，均采用 <a target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh" rel="nofollow noopener noopener">CC BY-SA 4.0 协议</a> ，转载请注明出处！</p>
+              
+              
+                <div class="post-prevnext row">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2020/12/14/JWT%E8%AE%A4%E8%AF%81/">
+                        <span class="hidden-mobile">JWT认证</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+    
+      <div class="d-none d-lg-block col-lg-2 toc-container" id="toc-ctn">
+        <div id="toc">
+  <p class="toc-header"><i class="iconfont icon-list"></i>&nbsp;目录</p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+<!-- Custom -->
+
+
+    
+
+    
+      <a id="scroll-top-button" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v"
+                 for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+
+    
+  </main>
+
+  <footer class="text-center mt-5 py-3">
+  <div class="footer-content">
+     <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+  </div>
+  
+
+  
+
+  
+</footer>
+
+<!-- SCRIPTS -->
+
+  <script  src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":200})
+    NProgress.start()
+    document.addEventListener('DOMContentLoaded', function() {
+      window.NProgress && window.NProgress.inc();
+    })
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" ></script>
+<script  src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.min.js" ></script>
+<script  src="/js/debouncer.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+<!-- Plugins -->
+
+
+  
+    <script  src="/js/lazyload.js" ></script>
+  
+
+
+
+  
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/tocbot@4.12.0/dist/tocbot.min.js" ></script>
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" ></script>
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/anchor-js@4.3.0/anchor.min.js" ></script>
+
+
+
+  <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2.0.6/dist/clipboard.min.js" ></script>
+
+
+
+
+
+
+  <script  src="https://cdn.jsdelivr.net/npm/typed.js@2.0.11/lib/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var title = document.getElementById('subtitle').title;
+      
+      typing(title)
+      
+    })(window, document);
+  </script>
+
+
+
+  <script  src="/js/local-search.js" ></script>
+  <script>
+    (function () {
+      var path = "/local-search.xml";
+      var inputArea = document.querySelector("#local-search-input");
+      inputArea.onclick = function () {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+        this.onclick = null
+      }
+    })()
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 主题的启动项 保持在最底部 -->
+<script  src="/js/boot.js" ></script>
+
+
+
+</body>
+</html>
