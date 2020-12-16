@@ -54,31 +54,6 @@
   
   
   <entry>
-    <title>MySQL索引</title>
-    <link href="/2020/12/14/MySQL%E7%B4%A2%E5%BC%95/"/>
-    <url>/2020/12/14/MySQL%E7%B4%A2%E5%BC%95/</url>
-    
-    <content type="html"><![CDATA[<p>此篇博文记录对于MySQL索引的学习，若有理解有误之处，望大佬指出。</p><a id="more"></a><h2 id="索引概念"><a href="#索引概念" class="headerlink" title="索引概念"></a>索引概念</h2><p>在数据库中，<code>索引通常来说是一种数据结构，这种数据结构能够加快数据的查找。</code></p><p>当数据库中的数据量达到百万甚至千万级别时，如果不通过索引查找，则需要进行百万或千万次的比较，查找会比较慢。一旦建立索引，查找数据通过索引数据结构快速定位到数据元素，对于查询速率会有很大的帮助。</p><p>例如我们写下这条SQL语句：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs mysql">select name from user where id&#x3D;5;<br></code></pre></td></tr></table></figure><p>如果在<code>id</code>字段上建有索引，则MySQL会先通过索引来找到id为5的行，然后返回该行。</p><p>也就是说MySQL会先在索引数据结构上按索引值进行查找，然后返回所有匹配的行。</p><p>注意：索引不仅仅可以包含一个列的值，还可以包含多个列的值。如果包含多个列的值，则需要注意列的顺序，因为MySQL会使用索引的最左前缀列来进行匹配。</p><h2 id="索引类型"><a href="#索引类型" class="headerlink" title="索引类型"></a>索引类型</h2><p>在MySQL中，索引是在存储引擎层实现的，而不是在服务器层实现的。</p><h3 id="B-Tree索引"><a href="#B-Tree索引" class="headerlink" title="B+Tree索引"></a>B+Tree索引</h3><p><strong>B-Tree对于索引列是按照顺序组织存储的，所以很适合进行范围查找数据。</strong></p><h3 id="Hash索引"><a href="#Hash索引" class="headerlink" title="Hash索引"></a>Hash索引</h3><p>Hash索引基于Hash表实现，对于每一行数据，存储引擎都会对所有的列计算一个Hash Code，Hash索引将所有的Hash Code存储在引擎中，同时在Hash表中存储指向每个数据行的指针。</p><p>在MySQL中，只有Memory引擎显示支持Hash索引，这也是Memory引擎默认的索引方式。</p><p>使用Hash索引的缺点：</p><p>1、Hash索引只包含哈希值和指向数据行的指针，不存储字段值，所以不能使用索引来避免读取行。</p><p>2、Hash索引的数据并不是按照索引值顺序存储的，所以不能用于排序场景。    </p>]]></content>
-    
-    
-    <categories>
-      
-      <category>MySQL</category>
-      
-    </categories>
-    
-    
-    <tags>
-      
-      <tag>MySQL索引</tag>
-      
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
     <title>MySQL 8.0 安装</title>
     <link href="/2020/12/13/MySQL8-0%E5%AE%89%E8%A3%85/"/>
     <url>/2020/12/13/MySQL8-0%E5%AE%89%E8%A3%85/</url>
